@@ -1,0 +1,1 @@
+"""Simulação da mina"""
