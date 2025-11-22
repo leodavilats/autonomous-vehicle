@@ -1,0 +1,1 @@
+"""Mecanismos de sincronização"""
