@@ -19,6 +19,7 @@ class CommandType(Enum):
     
     EMERGENCY_STOP = auto()
     RESET_EMERGENCY = auto()
+    RESET_FAULT = auto()
     
     SHUTDOWN = auto()
 
@@ -45,5 +46,6 @@ KEYBOARD_MAPPING = {
     'x': CommandType.STOP,
     'space': CommandType.EMERGENCY_STOP,
     'r': CommandType.RESET_EMERGENCY,
+    'f': CommandType.RESET_FAULT,
     'esc': CommandType.SHUTDOWN,
 }

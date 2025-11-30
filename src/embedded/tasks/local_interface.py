@@ -66,6 +66,9 @@ class LocalInterfaceTask(threading.Thread):
                 elif key == 'R':
                     self.send_command(CommandType.RESET_EMERGENCY)
                     print("→ Emergência resetada")
+                elif key == 'F':
+                    self.send_command(CommandType.RESET_FAULT)
+                    print("→ Sistema REARMADO (falhas limpas)")
                 elif key == 'D':
 
                     self._update_display()
@@ -83,8 +86,8 @@ class LocalInterfaceTask(threading.Thread):
         print("  [W] Acelerar                   [S] Frear")
         print("  [Q] Virar esquerda            [E] Virar direita")
         print("  [X] Parar                      [SPACE] Emergência")
-        print("  [R] Reset emergência           [D] Mostrar display")
-        print("  [H] Ajuda")
+        print("  [R] Reset emergência           [F] Rearmar (limpar falhas)")
+        print("  [D] Mostrar display            [H] Ajuda")
         print("="*70 + "\n")
     
     def _update_display(self):
