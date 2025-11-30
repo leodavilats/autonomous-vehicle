@@ -15,6 +15,7 @@ from src.embedded.tasks.data_collector import DataCollectorTask
 from src.embedded.tasks.route_planner import RoutePlanningTask
 from src.embedded.tasks.local_interface import LocalInterfaceTask
 from src.embedded.communication.mqtt_client import MQTTClient
+from src.simulation.random_fault_generator import RandomFaultGenerator
 
 class EmbeddedSystem:
     
@@ -37,6 +38,14 @@ class EmbeddedSystem:
         self.simulator = MineSimulatorTask(
             self.shared_state,
             simulation_period=TIMING_CONFIG['simulation_period']
+        )
+        
+        self.fault_generator = RandomFaultGenerator(
+            inject_electrical_fault=self.simulator.inject_electrical_fault,
+            inject_hydraulic_fault=self.simulator.inject_hydraulic_fault,
+            check_period=5.0,
+            electrical_fault_probability=0.03,
+            hydraulic_fault_probability=0.03
         )
         
         self.tasks = []
@@ -62,7 +71,8 @@ class EmbeddedSystem:
             shared_state=self.shared_state,
             event_manager=self.event_manager,
             command_queue=self.command_queue,
-            update_period=TIMING_CONFIG['command_logic_period']
+            update_period=TIMING_CONFIG['command_logic_period'],
+            fault_generator=self.fault_generator
         )
         self.tasks.append(command_task)
         
@@ -117,12 +127,14 @@ class EmbeddedSystem:
         self.simulator.start()
         time.sleep(0.5)
         
+        self.fault_generator.start()
+        print("✓ Gerador de falhas aleatórias iniciado")
+        
         for task in self.tasks:
             task.start()
             time.sleep(0.1)
         
         if self.mqtt_client:
-
             self.mqtt_client.register_callback('command', self._handle_mqtt_command)
             self.mqtt_client.register_callback('setpoint', self._handle_mqtt_setpoint)
             self.mqtt_client.register_callback('route', self._handle_mqtt_route)
@@ -140,7 +152,6 @@ class EmbeddedSystem:
     def run(self):
         try:
             while True:
-
                 if self.event_manager.is_shutdown():
                     print("\nShutdown solicitado...")
                     break
@@ -193,6 +204,7 @@ class EmbeddedSystem:
                 'EMERGENCY_STOP': CommandType.EMERGENCY_STOP,
                 'RESET': CommandType.RESET_EMERGENCY,
                 'RESET_EMERGENCY': CommandType.RESET_EMERGENCY,
+                'RESET_FAULT': CommandType.RESET_FAULT,
                 'STOP': CommandType.STOP,
                 'MOVE_FORWARD': CommandType.MOVE_FORWARD,
                 'MOVE_BACKWARD': CommandType.MOVE_BACKWARD,
@@ -233,10 +245,8 @@ class EmbeddedSystem:
             route = []
             for wp in waypoints:
                 if isinstance(wp, dict):
-
                     route.append((wp['x'], wp['y']))
                 elif isinstance(wp, (list, tuple)) and len(wp) >= 2:
-
                     route.append((wp[0], wp[1]))
                 else:
                     print(f"[MQTT] Waypoint inválido ignorado: {wp}")
@@ -257,6 +267,8 @@ class EmbeddedSystem:
         
         self.event_manager.shutdown()
         time.sleep(0.5)
+        
+        self.fault_generator.stop()
         
         self.simulator.stop()
         
