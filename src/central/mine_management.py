@@ -513,10 +513,10 @@ class MineManagementGUI:
             # Temperatura com indicador de status
             temp = data.get('temperature', 0)
             if temp > 120.0:
-                temp_text = f"{temp:.1f}°C 🔴FALHA"
+                temp_text = f"{temp:.1f}°C 🔴 FALHA"
                 temp_color = '#e53e3e'
             elif temp > 95.0:
-                temp_text = f"{temp:.1f}°C 🟡ALERTA"
+                temp_text = f"{temp:.1f}°C 🟡 ALERTA"
                 temp_color = '#dd6b20'
             else:
                 temp_text = f"{temp:.1f}°C 🟢"

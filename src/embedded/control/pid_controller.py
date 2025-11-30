@@ -20,6 +20,7 @@ class PIDController:
         self._integral = 0.0
         self._last_error = 0.0
         self._last_time = None
+        self._last_output = 0.0
         self._enabled = False
         self._setpoint = 0.0
     
@@ -66,6 +67,7 @@ class PIDController:
         self._integral = 0.0
         self._last_error = 0.0
         self._last_time = None
+        self._last_output = 0.0
     
     def disable(self) -> None:
         self._enabled = False
@@ -77,6 +79,7 @@ class PIDController:
         self._integral = 0.0
         self._last_error = 0.0
         self._last_time = None
+        self._last_output = 0.0
     
     def set_gains(self, kp: float = None, ki: float = None, kd: float = None) -> None:
         if kp is not None:
