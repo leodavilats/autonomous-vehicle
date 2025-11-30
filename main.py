@@ -44,9 +44,9 @@ class EmbeddedSystem:
         self.fault_generator = RandomFaultGenerator(
             inject_electrical_fault=self.simulator.inject_electrical_fault,
             inject_hydraulic_fault=self.simulator.inject_hydraulic_fault,
-            check_period=5.0,
-            electrical_fault_probability=0.03,
-            hydraulic_fault_probability=0.03
+            check_period=10.0,
+            electrical_fault_probability=0.02,
+            hydraulic_fault_probability=0.02
         )
         
         self.tasks = []

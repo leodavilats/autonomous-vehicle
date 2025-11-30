@@ -74,7 +74,7 @@ class MineSimulatorTask(threading.Thread):
                 current_time = time.time()
                 if current_time - self.last_heating_check >= self.heating_check_interval:
                     self.last_heating_check = current_time
-                    if random.random() < 0.15 and not self.random_heating:
+                    if random.random() < 0.03 and not self.random_heating:
                         self.random_heating = True
                         self.target_temp = random.uniform(95.0, 150.0)
                         print(f"[{self.name}] 🔥 Aquecimento aleatório iniciado (alvo: {self.target_temp:.1f}°C)")

@@ -25,6 +25,7 @@ class RoutePlanningTask(threading.Thread):
         
         self.route: List[Tuple[float, float]] = []
         self.current_waypoint_idx = 0
+        self._route_saved_before_fault = False
     
     def run(self):
         print(f"[{self.name}] Tarefa iniciada")
@@ -37,8 +38,13 @@ class RoutePlanningTask(threading.Thread):
                 self._check_new_route()
                 
                 state = self.shared_state.get_state()
+                
+                self._check_fault_recovery(state)
+                
                 if self.route and state.is_automatic() and not state.has_fault():
                     self._update_setpoints()
+                elif state.has_fault() and self.route and not self._route_saved_before_fault:
+                    self._save_route_state()
                 
             except Exception as e:
                 print(f"[{self.name}] Erro: {e}")
@@ -54,6 +60,7 @@ class RoutePlanningTask(threading.Thread):
             new_route = self.waypoint_queue.get_nowait()
             self.route = new_route
             self.current_waypoint_idx = 0
+            self._route_saved_before_fault = False
             print(f"[{self.name}] Nova rota recebida com {len(self.route)} waypoints")
             self.event_manager.emit(EventType.NEW_ROUTE, {"waypoints": len(self.route)})
         except queue.Empty:
@@ -103,6 +110,22 @@ class RoutePlanningTask(threading.Thread):
             self.waypoint_queue.put_nowait(waypoints)
         except queue.Full:
             print(f"[{self.name}] Fila de waypoints cheia")
+    
+    def _save_route_state(self):
+        if self.route:
+            self.shared_state.save_route(self.route, self.current_waypoint_idx)
+            self._route_saved_before_fault = True
+            print(f"[{self.name}] Rota salva para restauração: {len(self.route)} waypoints, índice atual: {self.current_waypoint_idx}")
+    
+    def _check_fault_recovery(self, state):
+        if not state.has_fault() and self._route_saved_before_fault:
+            saved_route, saved_idx = self.shared_state.get_saved_route()
+            if saved_route:
+                self.route = saved_route
+                self.current_waypoint_idx = saved_idx
+                print(f"[{self.name}] Rota restaurada: {len(self.route)} waypoints, índice {self.current_waypoint_idx}")
+                self.event_manager.emit(EventType.NEW_ROUTE, {"waypoints": len(self.route)})
+            self._route_saved_before_fault = False
     
     def stop(self):
         self._stop_event.set()

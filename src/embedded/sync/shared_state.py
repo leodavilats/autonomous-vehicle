@@ -119,3 +119,17 @@ class SharedState:
         with self._lock:
             if truck_id in self._other_trucks:
                 del self._other_trucks[truck_id]
+    
+    def save_route(self, route: list, waypoint_idx: int) -> None:
+        with self._lock:
+            self._state.saved_route = route.copy() if route else None
+            self._state.saved_waypoint_idx = waypoint_idx
+    
+    def get_saved_route(self) -> tuple:
+        with self._lock:
+            return (self._state.saved_route, self._state.saved_waypoint_idx)
+    
+    def clear_saved_route(self) -> None:
+        with self._lock:
+            self._state.saved_route = None
+            self._state.saved_waypoint_idx = 0

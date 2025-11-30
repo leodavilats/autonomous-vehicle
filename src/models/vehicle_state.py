@@ -33,6 +33,9 @@ class VehicleState:
     target_x: Optional[float] = None
     target_y: Optional[float] = None
     
+    saved_route: Optional[list] = None
+    saved_waypoint_idx: int = 0
+    
     temperature: float = 0.0
     electrical_fault: bool = False
     hydraulic_fault: bool = False

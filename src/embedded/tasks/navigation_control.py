@@ -23,6 +23,7 @@ class NavigationControlTask(threading.Thread):
         self.angular_controller = AngularController(kp=1.0, ki=0.05, kd=0.2)
         
         self._prev_mode_automatic = False
+        self._prev_had_fault = False
     
     def run(self):
         print(f"[{self.name}] Tarefa iniciada")
@@ -34,6 +35,10 @@ class NavigationControlTask(threading.Thread):
 
                 state = self.shared_state.get_state()
                 
+                if self._prev_had_fault and not state.has_fault() and state.is_automatic():
+                    self._enable_controllers(state.velocity, state.theta)
+                    print(f"[{self.name}] Controladores reabilitados")
+                
                 if state.is_automatic() and not self._prev_mode_automatic:
 
                     self._enable_controllers(state.velocity, state.theta)
@@ -44,6 +49,7 @@ class NavigationControlTask(threading.Thread):
                     print(f"[{self.name}] Controladores desativados")
                 
                 self._prev_mode_automatic = state.is_automatic()
+                self._prev_had_fault = state.has_fault()
                 
                 if state.is_automatic() and state.status not in [VehicleStatus.EMERGENCY, VehicleStatus.FAULT]:
                     self._execute_control(state)
@@ -88,6 +94,12 @@ class NavigationControlTask(threading.Thread):
         event = self.event_manager.check_event(EventType.EMERGENCY_STOP)
         if event:
             print(f"[{self.name}] Emergência detectada - parando controle")
+            self._disable_controllers()
+            self.shared_state.set_actuators(0.0, 0.0)
+        
+        event = self.event_manager.check_event(EventType.TEMPERATURE_FAULT)
+        if event:
+            print(f"[{self.name}] Falha de temperatura detectada - parando controle")
             self._disable_controllers()
             self.shared_state.set_actuators(0.0, 0.0)
         

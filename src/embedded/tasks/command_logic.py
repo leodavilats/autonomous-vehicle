@@ -205,7 +205,10 @@ class CommandLogicTask(threading.Thread):
 
         event = self.event_manager.check_event(EventType.TEMPERATURE_FAULT)
         if event:
-            print(f"[{self.name}] Falha de temperatura recebida")
+            print(f"[{self.name}] Falha de temperatura recebida - PARANDO VEÍCULO")
+            self._save_state_before_fault()
+            self.shared_state.set_actuators(0.0, 0.0)
+            self.shared_state.set_setpoints(0.0, 0.0)
         
         event = self.event_manager.check_event(EventType.ELECTRICAL_FAULT)
         if event:
