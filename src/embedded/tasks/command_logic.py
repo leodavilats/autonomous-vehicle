@@ -16,7 +16,8 @@ class CommandLogicTask(threading.Thread):
                  event_manager: EventManager,
                  command_queue: queue.Queue,
                  update_period: float = 0.1,
-                 fault_generator = None):
+                 fault_generator = None,
+                 simulator = None):
         super().__init__(name="CommandLogic", daemon=True)
         
         self.circular_buffer = circular_buffer
@@ -25,6 +26,7 @@ class CommandLogicTask(threading.Thread):
         self.command_queue = command_queue
         self.update_period = update_period
         self.fault_generator = fault_generator
+        self.simulator = simulator
         self._stop_event = threading.Event()
         
         self._pre_fault_velocity_sp = 0.0
@@ -111,14 +113,19 @@ class CommandLogicTask(threading.Thread):
         elif command.command_type == CommandType.RESET_EMERGENCY:
 
             self.shared_state.set_faults(emergency=False)
+            self.shared_state.set_status(VehicleStatus.STOPPED)
             self.event_manager.emit(EventType.EMERGENCY_RESET, {})
-            print(f"[{self.name}] Emergência resetada")
+            print(f"[{self.name}] Emergência resetada - status: STOPPED")
         
         elif command.command_type == CommandType.RESET_FAULT:
             if self.fault_generator:
                 self.fault_generator.clear_all_faults()
             
-            self.shared_state.set_faults(electrical=False, hydraulic=False)
+            if self.simulator and hasattr(self.simulator, 'reset_temperature'):
+                self.simulator.reset_temperature()
+            
+            self.shared_state.set_faults(electrical=False, hydraulic=False, emergency=False)
+            self.shared_state.set_status(VehicleStatus.STOPPED)
             
             if self._pre_fault_mode:
                 self.shared_state.set_mode(self._pre_fault_mode)
@@ -133,7 +140,8 @@ class CommandLogicTask(threading.Thread):
                 angular_sp=self._pre_fault_angular_sp
             )
             
-            print(f"[{self.name}] Sistema REARMADO - retomando operação")
+            state = self.shared_state.get_state()
+            print(f"[{self.name}] Sistema REARMADO - Status: {state.status.name}, Modo: {state.mode.name}")
             self.event_manager.emit(EventType.FAULT_CLEARED, {"type": "manual_reset"})
         
         elif command.command_type == CommandType.STOP:
@@ -154,10 +162,10 @@ class CommandLogicTask(threading.Thread):
                 self.shared_state.set_actuators(command.value or -0.5, 0.0)
             elif command.command_type == CommandType.STEER_LEFT:
                 accel, _ = self.shared_state.get_actuators()
-                self.shared_state.set_actuators(accel, command.value or -0.5)
+                self.shared_state.set_actuators(accel, command.value or 0.5)
             elif command.command_type == CommandType.STEER_RIGHT:
                 accel, _ = self.shared_state.get_actuators()
-                self.shared_state.set_actuators(accel, command.value or 0.5)
+                self.shared_state.set_actuators(accel, command.value or -0.5)
             elif command.command_type == CommandType.MOVE_FORWARD:
                 self.shared_state.set_actuators(command.value or 0.5, 0.0)
                 print(f"[{self.name}] Movendo para frente")
@@ -166,11 +174,11 @@ class CommandLogicTask(threading.Thread):
                 print(f"[{self.name}] Movendo para trás")
             elif command.command_type == CommandType.TURN_LEFT:
                 accel, _ = self.shared_state.get_actuators()
-                self.shared_state.set_actuators(accel, command.value or -0.5)
+                self.shared_state.set_actuators(accel, command.value or 0.5)
                 print(f"[{self.name}] Girando à esquerda")
             elif command.command_type == CommandType.TURN_RIGHT:
                 accel, _ = self.shared_state.get_actuators()
-                self.shared_state.set_actuators(accel, command.value or 0.5)
+                self.shared_state.set_actuators(accel, command.value or -0.5)
                 print(f"[{self.name}] Girando à direita")
     
     def _update_vehicle_status(self):

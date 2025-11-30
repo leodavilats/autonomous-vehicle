@@ -6,6 +6,7 @@ from collections import defaultdict
 
 class EventType(Enum):
 
+    TEMPERATURE_ALERT = auto()
     TEMPERATURE_FAULT = auto()
     ELECTRICAL_FAULT = auto()
     HYDRAULIC_FAULT = auto()

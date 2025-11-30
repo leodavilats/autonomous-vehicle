@@ -114,7 +114,15 @@ class LocalInterfaceTask(threading.Thread):
             if state.target_x is not None:
                 print(f"{'ALVO:':<20} X={state.target_x:>7.2f}m  Y={state.target_y:>7.2f}m")
         
-        print(f"\n{'TEMPERATURA:':<20} {state.temperature:>7.1f}°C")
+        temp_status = ""
+        if state.temperature > 120.0:
+            temp_status = "🔴 FALHA CRÍTICA"
+        elif state.temperature > 95.0:
+            temp_status = "🟡 ALERTA"
+        else:
+            temp_status = "🟢 NORMAL"
+        print(f"\n{'TEMPERATURA:':<20} {state.temperature:>7.1f}°C   {temp_status}")
+        
         print(f"{'FALHA ELÉTRICA:':<20} {'SIM' if state.electrical_fault else 'NÃO'}")
         print(f"{'FALHA HIDRÁULICA:':<20} {'SIM' if state.hydraulic_fault else 'NÃO'}")
         print(f"{'EMERGÊNCIA:':<20} {'ACIONADA' if state.emergency_stop else 'NÃO'}")

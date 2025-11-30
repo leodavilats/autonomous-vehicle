@@ -30,7 +30,8 @@ NOISE_CONFIG = {
 }
 
 FAULT_CONFIG = {
-    'temperature_threshold': 100.0,
+    'temperature_alert_threshold': 95.0,
+    'temperature_fault_threshold': 120.0,
 }
 
 TIMING_CONFIG = {

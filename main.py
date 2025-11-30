@@ -14,6 +14,7 @@ from src.embedded.tasks.navigation_control import NavigationControlTask
 from src.embedded.tasks.data_collector import DataCollectorTask
 from src.embedded.tasks.route_planner import RoutePlanningTask
 from src.embedded.tasks.local_interface import LocalInterfaceTask
+from src.embedded.tasks.collision_avoidance import CollisionAvoidanceTask
 from src.embedded.communication.mqtt_client import MQTTClient
 from src.simulation.random_fault_generator import RandomFaultGenerator
 
@@ -62,7 +63,8 @@ class EmbeddedSystem:
             sensor_reader=self.simulator.get_sensor_data,
             event_manager=self.event_manager,
             check_period=TIMING_CONFIG['fault_monitoring_period'],
-            temp_threshold=FAULT_CONFIG['temperature_threshold']
+            temp_alert_threshold=FAULT_CONFIG['temperature_alert_threshold'],
+            temp_fault_threshold=FAULT_CONFIG['temperature_fault_threshold']
         )
         self.tasks.append(fault_task)
         
@@ -72,7 +74,8 @@ class EmbeddedSystem:
             event_manager=self.event_manager,
             command_queue=self.command_queue,
             update_period=TIMING_CONFIG['command_logic_period'],
-            fault_generator=self.fault_generator
+            fault_generator=self.fault_generator,
+            simulator=self.simulator
         )
         self.tasks.append(command_task)
         
@@ -99,6 +102,15 @@ class EmbeddedSystem:
             waypoint_threshold=ROUTE_CONFIG['waypoint_threshold']
         )
         self.tasks.append(route_task)
+        
+        collision_task = CollisionAvoidanceTask(
+            shared_state=self.shared_state,
+            event_manager=self.event_manager,
+            check_period=0.1,
+            safety_distance=5.0,
+            warning_distance=10.0
+        )
+        self.tasks.append(collision_task)
         
         interface_task = LocalInterfaceTask(
             shared_state=self.shared_state,
@@ -138,6 +150,7 @@ class EmbeddedSystem:
             self.mqtt_client.register_callback('command', self._handle_mqtt_command)
             self.mqtt_client.register_callback('setpoint', self._handle_mqtt_setpoint)
             self.mqtt_client.register_callback('route', self._handle_mqtt_route)
+            self.mqtt_client.register_callback('position', self._handle_mqtt_position)
             
             if self.mqtt_client.connect():
                 print("✓ MQTT conectado")
@@ -261,6 +274,18 @@ class EmbeddedSystem:
             print(f"[MQTT] Erro ao processar rota: {e}")
             import traceback
             traceback.print_exc()
+    
+    def _handle_mqtt_position(self, data: dict):
+        try:
+            other_truck_id = data.get('truck_id')
+            x = data.get('x')
+            y = data.get('y')
+            theta = data.get('theta', 0.0)
+            
+            if other_truck_id and x is not None and y is not None:
+                self.shared_state.update_other_truck_position(other_truck_id, x, y, theta)
+        except Exception as e:
+            print(f"[MQTT] Erro ao processar posição: {e}")
     
     def stop(self):
         print("\nEncerrando sistema...")

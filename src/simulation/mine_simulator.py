@@ -1,5 +1,6 @@
 import threading
 import time
+import random
 from typing import Callable
 from src.simulation.vehicle_dynamics import VehicleDynamics, VehicleParameters
 from src.simulation.noise_generator import MultiChannelNoise
@@ -42,6 +43,11 @@ class MineSimulatorTask(threading.Thread):
         self.electrical_fault = False
         self.hydraulic_fault = False
         
+        self.random_heating = False
+        self.target_temp = 25.0
+        self.last_heating_check = time.time()
+        self.heating_check_interval = 10.0
+        
         self.current_sensor_data = SensorData(
             position_x=50.0,
             position_y=37.5,
@@ -65,7 +71,20 @@ class MineSimulatorTask(threading.Thread):
                 
                 x, y, theta, velocity = self.dynamics.update(accel_cmd, steer_cmd)
                 
-                self.temperature = 25.0 + abs(velocity) * 2.0 + abs(accel_cmd) * 5.0
+                current_time = time.time()
+                if current_time - self.last_heating_check >= self.heating_check_interval:
+                    self.last_heating_check = current_time
+                    if random.random() < 0.15 and not self.random_heating:
+                        self.random_heating = True
+                        self.target_temp = random.uniform(95.0, 150.0)
+                        print(f"[{self.name}] 🔥 Aquecimento aleatório iniciado (alvo: {self.target_temp:.1f}°C)")
+                
+                base_temp = 25.0 + abs(velocity) * 2.0 + abs(accel_cmd) * 5.0
+                
+                if self.random_heating:
+                    self.temperature += (self.target_temp - self.temperature) * 0.05
+                else:
+                    self.temperature = base_temp
                 
                 sensor_values = {
                     'position_x': x,
@@ -108,6 +127,12 @@ class MineSimulatorTask(threading.Thread):
     def inject_hydraulic_fault(self, fault: bool = True):
         self.hydraulic_fault = fault
         print(f"[{self.name}] Falha hidráulica {'INJETADA' if fault else 'REMOVIDA'}")
+    
+    def reset_temperature(self):
+        self.random_heating = False
+        self.temperature = 25.0
+        self.target_temp = 25.0
+        print(f"[{self.name}] 🌡️ Temperatura resetada para normal")
     
     def set_position(self, x: float, y: float, theta: float = 0.0):
         self.dynamics.set_position(x, y, theta)

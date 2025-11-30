@@ -136,8 +136,10 @@ class MineManagementGUI:
             row_frame = ttk.Frame(info_frame)
             row_frame.grid(row=i, column=0, sticky=(tk.W, tk.E), pady=2)
             
-            ttk.Label(row_frame, text=f"{icon} {label}", style='Info.TLabel',
-                     foreground='#4a5568', width=18).pack(side=tk.LEFT)
+            ttk.Label(row_frame, text=icon, style='Info.TLabel',
+                     foreground='#4a5568', width=2).pack(side=tk.LEFT)
+            ttk.Label(row_frame, text=label, style='Info.TLabel',
+                     foreground='#4a5568', width=15).pack(side=tk.LEFT)
             self.info_labels[label] = ttk.Label(row_frame, text="-", style='Status.TLabel',
                                                foreground='#2d3748')
             self.info_labels[label].pack(side=tk.LEFT)
@@ -507,7 +509,19 @@ class MineManagementGUI:
             y = data.get('y', 0)
             self.info_labels['Posição:'].config(text=f"({x:.1f}, {y:.1f})")
             self.info_labels['Velocidade:'].config(text=f"{data.get('velocity', 0):.1f} m/s")
-            self.info_labels['Temperatura:'].config(text=f"{data.get('temperature', 0):.1f}°C")
+            
+            # Temperatura com indicador de status
+            temp = data.get('temperature', 0)
+            if temp > 120.0:
+                temp_text = f"{temp:.1f}°C 🔴FALHA"
+                temp_color = '#e53e3e'
+            elif temp > 95.0:
+                temp_text = f"{temp:.1f}°C 🟡ALERTA"
+                temp_color = '#dd6b20'
+            else:
+                temp_text = f"{temp:.1f}°C 🟢"
+                temp_color = '#2d3748'
+            self.info_labels['Temperatura:'].config(text=temp_text, foreground=temp_color)
             
             electrical_fault = data.get('electrical_fault', False)
             hydraulic_fault = data.get('hydraulic_fault', False)
@@ -525,7 +539,19 @@ class MineManagementGUI:
             y = data.get('y', 0)
             self.info_labels['Posição:'].config(text=f"({x:.1f}, {y:.1f})")
             self.info_labels['Velocidade:'].config(text=f"{data.get('velocity', 0):.1f} m/s")
-            self.info_labels['Temperatura:'].config(text=f"{data.get('temperature', 0):.1f}°C")
+            
+            # Temperatura com indicador de status
+            temp = data.get('temperature', 0)
+            if temp > 120.0:
+                temp_text = f"{temp:.1f}°C 🔴FALHA"
+                temp_color = '#e53e3e'
+            elif temp > 95.0:
+                temp_text = f"{temp:.1f}°C 🟡ALERTA"
+                temp_color = '#dd6b20'
+            else:
+                temp_text = f"{temp:.1f}°C 🟢"
+                temp_color = '#2d3748'
+            self.info_labels['Temperatura:'].config(text=temp_text, foreground=temp_color)
             
             electrical_fault = data.get('electrical_fault', False)
             hydraulic_fault = data.get('hydraulic_fault', False)

@@ -41,7 +41,7 @@ class VehicleState:
     def has_fault(self) -> bool:
         return (self.electrical_fault or 
                 self.hydraulic_fault or 
-                self.temperature > 100.0 or
+                self.temperature > 120.0 or
                 self.emergency_stop)
     
     def is_automatic(self) -> bool:

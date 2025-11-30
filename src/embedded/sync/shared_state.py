@@ -1,5 +1,6 @@
 import threading
 import copy
+from typing import Dict
 from src.models.vehicle_state import VehicleState, OperationMode, VehicleStatus
 
 class SharedState:
@@ -7,6 +8,7 @@ class SharedState:
     def __init__(self, truck_id: int):
         self._state = VehicleState(truck_id=truck_id)
         self._lock = threading.Lock()
+        self._other_trucks: Dict[int, Dict] = {}
     
     def get_state(self) -> VehicleState:
         with self._lock:
@@ -94,3 +96,26 @@ class SharedState:
         with self._lock:
             return (self._state.velocity_setpoint, 
                     self._state.angular_setpoint)
+    
+    def update_other_truck_position(self, truck_id: int, x: float, y: float, theta: float = 0.0) -> None:
+        with self._lock:
+            self._other_trucks[truck_id] = {
+                'x': x,
+                'y': y,
+                'theta': theta,
+                'last_update': __import__('time').time()
+            }
+    
+    def get_other_trucks_positions(self) -> Dict[int, Dict]:
+        with self._lock:
+            current_time = __import__('time').time()
+            self._other_trucks = {
+                tid: data for tid, data in self._other_trucks.items()
+                if current_time - data.get('last_update', 0) < 5.0
+            }
+            return copy.deepcopy(self._other_trucks)
+    
+    def remove_other_truck(self, truck_id: int) -> None:
+        with self._lock:
+            if truck_id in self._other_trucks:
+                del self._other_trucks[truck_id]

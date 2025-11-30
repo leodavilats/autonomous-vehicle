@@ -66,7 +66,11 @@ class MQTTClient:
             self.client.subscribe(f"mine/truck/{self.truck_id}/command", qos=self.qos)
             self.client.subscribe(f"mine/truck/{self.truck_id}/setpoint", qos=self.qos)
             self.client.subscribe(f"mine/truck/{self.truck_id}/route", qos=self.qos)
+            
+            self.client.subscribe("mine/truck/+/position", qos=self.qos)
+            
             print(f"[MQTT] Inscrito nos tópicos do caminhão {self.truck_id}")
+            print(f"[MQTT] Inscrito em posições de todos caminhões para desvio de colisão")
         else:
             print(f"[MQTT] Falha na conexão (código {rc})")
     
@@ -84,6 +88,8 @@ class MQTTClient:
             self._handle_setpoint(payload)
         elif topic.endswith('/route'):
             self._handle_route(payload)
+        elif topic.endswith('/position'):
+            self._handle_position(topic, payload)
     
     def _handle_command(self, payload: str):
         if 'command' in self._callbacks:
@@ -108,6 +114,19 @@ class MQTTClient:
                 self._callbacks['route'](data)
             except Exception as e:
                 print(f"[MQTT] Erro ao processar rota: {e}")
+    
+    def _handle_position(self, topic: str, payload: str):
+        if 'position' in self._callbacks:
+            try:
+                parts = topic.split('/')
+                other_truck_id = int(parts[2])
+                
+                if other_truck_id != self.truck_id:
+                    data = json.loads(payload)
+                    data['truck_id'] = other_truck_id
+                    self._callbacks['position'](data)
+            except Exception as e:
+                print(f"[MQTT] Erro ao processar posição: {e}")
     
     def publish_state(self, state_data: dict):
         if not self.connected:

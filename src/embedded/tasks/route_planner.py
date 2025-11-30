@@ -36,7 +36,8 @@ class RoutePlanningTask(threading.Thread):
 
                 self._check_new_route()
                 
-                if self.route and self.shared_state.is_automatic():
+                state = self.shared_state.get_state()
+                if self.route and state.is_automatic() and not state.has_fault():
                     self._update_setpoints()
                 
             except Exception as e:
