@@ -1,6 +1,7 @@
 import threading
 import time
 import queue
+from typing import Optional
 from src.models.command import Command, CommandType
 from src.models.vehicle_state import OperationMode, VehicleStatus
 from src.embedded.sync.circular_buffer import CircularBuffer
@@ -14,7 +15,8 @@ class CommandLogicTask(threading.Thread):
                  shared_state: SharedState,
                  event_manager: EventManager,
                  command_queue: queue.Queue,
-                 update_period: float = 0.1):
+                 update_period: float = 0.1,
+                 fault_generator = None):
         super().__init__(name="CommandLogic", daemon=True)
         
         self.circular_buffer = circular_buffer
@@ -22,7 +24,14 @@ class CommandLogicTask(threading.Thread):
         self.event_manager = event_manager
         self.command_queue = command_queue
         self.update_period = update_period
+        self.fault_generator = fault_generator
         self._stop_event = threading.Event()
+        
+        self._pre_fault_velocity_sp = 0.0
+        self._pre_fault_angular_sp = 0.0
+        self._pre_fault_target_x = None
+        self._pre_fault_target_y = None
+        self._pre_fault_mode = None
     
     def run(self):
         print(f"[{self.name}] Tarefa iniciada")
@@ -105,6 +114,28 @@ class CommandLogicTask(threading.Thread):
             self.event_manager.emit(EventType.EMERGENCY_RESET, {})
             print(f"[{self.name}] Emergência resetada")
         
+        elif command.command_type == CommandType.RESET_FAULT:
+            if self.fault_generator:
+                self.fault_generator.clear_all_faults()
+            
+            self.shared_state.set_faults(electrical=False, hydraulic=False)
+            
+            if self._pre_fault_mode:
+                self.shared_state.set_mode(self._pre_fault_mode)
+                print(f"[{self.name}] Modo restaurado: {self._pre_fault_mode.name}")
+            
+            if self._pre_fault_target_x is not None and self._pre_fault_target_y is not None:
+                self.shared_state.set_target(self._pre_fault_target_x, self._pre_fault_target_y)
+                print(f"[{self.name}] Alvo restaurado: ({self._pre_fault_target_x:.1f}, {self._pre_fault_target_y:.1f})")
+            
+            self.shared_state.set_setpoints(
+                velocity_sp=self._pre_fault_velocity_sp,
+                angular_sp=self._pre_fault_angular_sp
+            )
+            
+            print(f"[{self.name}] Sistema REARMADO - retomando operação")
+            self.event_manager.emit(EventType.FAULT_CLEARED, {"type": "manual_reset"})
+        
         elif command.command_type == CommandType.STOP:
 
             self.shared_state.set_actuators(0.0, 0.0)
@@ -123,10 +154,10 @@ class CommandLogicTask(threading.Thread):
                 self.shared_state.set_actuators(command.value or -0.5, 0.0)
             elif command.command_type == CommandType.STEER_LEFT:
                 accel, _ = self.shared_state.get_actuators()
-                self.shared_state.set_actuators(accel, command.value or 0.5)
+                self.shared_state.set_actuators(accel, command.value or -0.5)
             elif command.command_type == CommandType.STEER_RIGHT:
                 accel, _ = self.shared_state.get_actuators()
-                self.shared_state.set_actuators(accel, command.value or -0.5)
+                self.shared_state.set_actuators(accel, command.value or 0.5)
             elif command.command_type == CommandType.MOVE_FORWARD:
                 self.shared_state.set_actuators(command.value or 0.5, 0.0)
                 print(f"[{self.name}] Movendo para frente")
@@ -135,11 +166,11 @@ class CommandLogicTask(threading.Thread):
                 print(f"[{self.name}] Movendo para trás")
             elif command.command_type == CommandType.TURN_LEFT:
                 accel, _ = self.shared_state.get_actuators()
-                self.shared_state.set_actuators(accel, command.value or 0.5)
+                self.shared_state.set_actuators(accel, command.value or -0.5)
                 print(f"[{self.name}] Girando à esquerda")
             elif command.command_type == CommandType.TURN_RIGHT:
                 accel, _ = self.shared_state.get_actuators()
-                self.shared_state.set_actuators(accel, command.value or -0.5)
+                self.shared_state.set_actuators(accel, command.value or 0.5)
                 print(f"[{self.name}] Girando à direita")
     
     def _update_vehicle_status(self):
@@ -170,11 +201,27 @@ class CommandLogicTask(threading.Thread):
         
         event = self.event_manager.check_event(EventType.ELECTRICAL_FAULT)
         if event:
-            print(f"[{self.name}] Falha elétrica recebida")
+            print(f"[{self.name}] Falha elétrica recebida - PARANDO VEÍCULO")
+            self._save_state_before_fault()
+            self.shared_state.set_actuators(0.0, 0.0)
+            self.shared_state.set_setpoints(0.0, 0.0)
         
         event = self.event_manager.check_event(EventType.HYDRAULIC_FAULT)
         if event:
-            print(f"[{self.name}] Falha hidráulica recebida")
+            print(f"[{self.name}] Falha hidráulica recebida - PARANDO VEÍCULO")
+            self._save_state_before_fault()
+            self.shared_state.set_actuators(0.0, 0.0)
+            self.shared_state.set_setpoints(0.0, 0.0)
+    
+    def _save_state_before_fault(self):
+        """Salva o estado atual para retomar após rearme"""
+        state = self.shared_state.get_state()
+        self._pre_fault_velocity_sp = state.velocity_setpoint
+        self._pre_fault_angular_sp = state.angular_setpoint
+        self._pre_fault_target_x = state.target_x
+        self._pre_fault_target_y = state.target_y
+        self._pre_fault_mode = state.mode
+        print(f"[{self.name}] Estado salvo para rearme futuro")
     
     def stop(self):
         self._stop_event.set()
